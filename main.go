@@ -354,12 +354,12 @@ func (m *mediaJob) processMedia() error {
 
 		blogPage, pageErr := getXMLSource(api, m.mainJob.connectTimeout)
 		if pageErr != nil {
-			fmt.Println(pageErr.Error())
+			fmt.Println(color.RedString("[ERROR PAGE %d] [%s]", currentPage, pageErr.Error()))
 		} else {
 			fmt.Println(
 				color.CyanString(
-					"\n[%s] [%s] [PAGE %d/%d]",
-					strings.ToLower(fmt.Sprintf(baseURL, m.mainJob.uname)),
+					"\n====================================[%s] [%s] [PAGE %d/%d]====================================",
+					strings.ToUpper(fmt.Sprintf(baseURL, m.mainJob.uname)),
 					strings.ToUpper(m.mainJob.media),
 					currentPage,
 					totalPage,
