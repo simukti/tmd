@@ -47,6 +47,8 @@ var (
 	dto          int
 	perPage      int
 	limitPage    int
+	counterFile  int
+	counterPost  int
 	allowedMedia = map[string]bool{"all": true, photo: true, video: true}
 	allMedia     = []string{photo, video}
 	userAgents   = []string{
@@ -193,7 +195,13 @@ func main() {
 		os.Exit(0)
 
 	}
-	fmt.Println(color.GreenString("DESTINATION: %s", dest))
+
+	absDest, _ := filepath.Abs(dest)
+	fmt.Println(color.GreenString("[SAVE TO : %s/*]", absDest))
+	// mulai dari nol ya mbak...
+	counterFile = 0
+	counterPost = 0
+	startTime := time.Now()
 
 	for _, u := range list {
 		job := &tumblrJob{
@@ -209,9 +217,21 @@ func main() {
 		}
 
 		if err := job.processJob(); err != nil {
-			fmt.Println(color.RedString("[ERROR] => %s", err.Error()))
+			fmt.Println(color.RedString("[ERROR] %s", err.Error()))
 		}
 	}
+
+	pu := strings.Join(list, ",")
+	elapsed := time.Now().Sub(startTime).Seconds()
+	summary := color.New(color.FgHiYellow, color.Bold).
+		SprintfFunc()("\n--------\n[USER] %s\n[POST] %d posts\n[FILE] %d files\n[TIME] %f seconds\n--------",
+		pu,
+		counterPost,
+		counterFile,
+		elapsed,
+	)
+
+	fmt.Println(summary)
 }
 
 func checkDest(dir string) error {
@@ -394,6 +414,8 @@ func getXMLSource(api string, cto int) (*Tumblr, error) {
 func (t *Tumblr) processPage(mainDestFolder string, perBatch, dto int) bool {
 	fl := []*fileToDownload{}
 	for _, p := range t.Posts.Posts {
+		counterPost++
+
 		if p.Type == photo {
 			pfj := t.getPhotoFileJob(&p, mainDestFolder)
 			fl = append(fl, pfj...)
@@ -610,6 +632,7 @@ func (d *actualBatchDownload) download() bool {
 					// file already deleted if any http/io error occured
 					fmt.Println(color.RedString("\t[ERROR] [%s]", err.Error()))
 				} else {
+					counterFile++
 					fmt.Println(color.GreenString("\t[SUCCESS] [%f] [%s]", <-elapsed, <-res))
 				}
 			case <-time.After(time.Second * time.Duration(d.dto)):
