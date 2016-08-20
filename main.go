@@ -34,7 +34,6 @@ const (
 	defaultMedia   = "all"
 	photo          = "photo"
 	video          = "video"
-	audio          = "audio"
 )
 
 var (
@@ -47,8 +46,9 @@ var (
 	cto          int
 	dto          int
 	perPage      int
-	allowedMedia = map[string]bool{"all": true, photo: true, video: true, audio: true}
-	allMedia     = []string{photo, video, audio}
+	limitPage    int
+	allowedMedia = map[string]bool{"all": true, photo: true, video: true}
+	allMedia     = []string{photo, video}
 	userAgents   = []string{
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:48.0) Gecko/20100101 Firefox/48.0",
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.91 Safari/537.36",
@@ -131,6 +131,7 @@ type tumblrJob struct {
 	downloadTimeout int
 	start           int
 	perPage         int
+	limitPage       int
 }
 
 func main() {
@@ -145,6 +146,7 @@ func main() {
 	flag.IntVar(&cto, "cto", defaultCto, "Connect timeout on XML parsing")
 	flag.IntVar(&dto, "dto", defaultDto, "Download timeout per n file batch in param -b")
 	flag.IntVar(&perPage, "pp", defaultPerPage, "Default post per page")
+	flag.IntVar(&limitPage, "lp", 0, "Max page to fetch, 0 is unlimited (all page)")
 	flag.Parse()
 
 	flag.VisitAll(func(f *flag.Flag) {
@@ -201,6 +203,7 @@ func main() {
 			batch:           batch,
 			start:           start,
 			perPage:         perPage,
+			limitPage:       limitPage,
 			connectTimeout:  cto,
 			downloadTimeout: dto,
 		}
@@ -337,6 +340,10 @@ func (m *mediaJob) processMedia() error {
 	countTotal := float64(blog.Posts.Total) / float64(m.mainJob.perPage)
 	totalPage := int(math.Ceil(countTotal))
 
+	if m.mainJob.limitPage != 0 && m.mainJob.limitPage < totalPage {
+		totalPage = m.mainJob.limitPage
+	}
+
 	for currentPage < totalPage {
 		currentPage++
 		startAt = int((m.mainJob.perPage * (currentPage - 1)) + 1)
@@ -435,11 +442,6 @@ func (t *Tumblr) processPage(mainDestFolder string, perBatch, dto int) bool {
 					}
 				}
 			}
-		}
-		if p.Type == audio {
-			// audio type is complex, most of it is embedded in flash or in html from another provider
-			fmt.Println(color.RedString("\t[ERROR] %s DOWNLOAD NOT SUPPORTED", strings.ToUpper(p.Type)))
-			return false
 		}
 	}
 
