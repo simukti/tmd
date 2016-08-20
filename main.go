@@ -358,12 +358,13 @@ func (m *mediaJob) processMedia() error {
 		} else {
 			fmt.Println(
 				color.CyanString(
-					"[%s] [%s] [PAGE %d/%d]",
+					"\n[%s] [%s] [PAGE %d/%d]",
 					strings.ToLower(fmt.Sprintf(baseURL, m.mainJob.uname)),
 					strings.ToUpper(m.mainJob.media),
 					currentPage,
 					totalPage,
 				))
+
 			blogPage.processPage(m.mainJob.dest, m.mainJob.batch, m.mainJob.downloadTimeout)
 		}
 	}
@@ -391,62 +392,80 @@ func getXMLSource(api string, cto int) (*Tumblr, error) {
 }
 
 func (t *Tumblr) processPage(mainDestFolder string, perBatch, dto int) bool {
-	fl := []fileToDownload{}
+	fl := []*fileToDownload{}
 	for _, p := range t.Posts.Posts {
 		if p.Type == photo {
-			if len(p.PhotoSet.Photo) > 0 {
-				for _, psp := range p.PhotoSet.Photo {
-					for _, pu := range psp.PhotoURL {
-						if pu.MaxWidth == 1280 {
-							fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
-							fd := fileToDownload{
-								url:      pu.FileURL,
-								destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
-							}
-							fl = append(fl, fd)
-						}
-					}
-				}
-			} else {
-				for _, pu := range p.PhotoURLs {
-					if pu.MaxWidth == 1280 {
-						fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
-						fd := fileToDownload{
-							url:      pu.FileURL,
-							destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
-						}
-						fl = append(fl, fd)
-					}
-				}
-			}
+			pfj := t.getPhotoFileJob(&p, mainDestFolder)
+			fl = append(fl, pfj...)
 		}
 		if p.Type == video {
-			for _, vp := range p.VideoPlayer {
-				// only direct video will be downloaded
-				if vp.MaxWidth == 0 && p.IsDirectVideo {
-					rgx := regexp.MustCompile(`<source[^>]+\bsrc=["']([^"']+)["']`)
-					match := rgx.FindStringSubmatch(vp.Content)
-					if len(match) == 2 {
-						videoURL := match[1]
-						fname := fmt.Sprintf(
-							"%s.%s",
-							normalizeDestination(videoURL, p.ID, p.Timestamp),
-							p.VideoSource.Extension,
-						)
-
-						fd := fileToDownload{
-							url:      videoURL,
-							destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
-						}
-						fl = append(fl, fd)
-					}
-				}
-			}
+			vfj := t.getVideoFileJob(&p, mainDestFolder)
+			fl = append(fl, vfj...)
 		}
 	}
 
 	dl := downloadList{list: fl, perBatch: perBatch, dto: dto, uname: t.TumbleBlog.Name, media: t.Posts.Type}
 	return dl.process()
+}
+
+func (t *Tumblr) getPhotoFileJob(p *Post, mainDestFolder string) []*fileToDownload {
+	fl := []*fileToDownload{}
+
+	if len(p.PhotoSet.Photo) > 0 {
+		for _, psp := range p.PhotoSet.Photo {
+			for _, pu := range psp.PhotoURL {
+				if pu.MaxWidth == 1280 {
+					fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
+					fd := fileToDownload{
+						url:      pu.FileURL,
+						destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
+					}
+					fl = append(fl, &fd)
+				}
+			}
+		}
+	} else {
+		for _, pu := range p.PhotoURLs {
+			if pu.MaxWidth == 1280 {
+				fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
+				fd := fileToDownload{
+					url:      pu.FileURL,
+					destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
+				}
+				fl = append(fl, &fd)
+			}
+		}
+	}
+
+	return fl
+}
+
+func (t *Tumblr) getVideoFileJob(p *Post, mainDestFolder string) []*fileToDownload {
+	fl := []*fileToDownload{}
+
+	for _, vp := range p.VideoPlayer {
+		// only direct video will be downloaded
+		if vp.MaxWidth == 0 && p.IsDirectVideo {
+			rgx := regexp.MustCompile(`<source[^>]+\bsrc=["']([^"']+)["']`)
+			match := rgx.FindStringSubmatch(vp.Content)
+			if len(match) == 2 {
+				videoURL := match[1]
+				fname := fmt.Sprintf(
+					"%s.%s",
+					normalizeDestination(videoURL, p.ID, p.Timestamp),
+					p.VideoSource.Extension,
+				)
+
+				fd := fileToDownload{
+					url:      videoURL,
+					destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
+				}
+				fl = append(fl, &fd)
+			}
+		}
+	}
+
+	return fl
 }
 
 func normalizeDestination(sourceURL string, id string, timestamp int) string {
@@ -467,7 +486,7 @@ type downloadList struct {
 	uname    string
 	perBatch int
 	dto      int
-	list     []fileToDownload
+	list     []*fileToDownload
 }
 
 // process download per batch concurrently
@@ -500,7 +519,7 @@ func (dl *downloadList) process() bool {
 		}
 
 		size := (end - start) + 1
-		batchJob := make([]fileToDownload, size)
+		batchJob := make([]*fileToDownload, size)
 
 		n := start
 		c := 0
@@ -524,7 +543,7 @@ func (dl *downloadList) process() bool {
 
 type actualBatchDownload struct {
 	dto  int
-	file []fileToDownload
+	file []*fileToDownload
 }
 
 func (d *actualBatchDownload) download() bool {
@@ -533,7 +552,7 @@ func (d *actualBatchDownload) download() bool {
 	for _, f := range d.file {
 		wg.Add(1)
 
-		go func(fd fileToDownload) {
+		go func(fd *fileToDownload) {
 			st := make(chan time.Time, 1)
 			done := make(chan error, 1)
 			elapsed := make(chan float64, 1)
