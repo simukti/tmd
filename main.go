@@ -26,11 +26,13 @@ import (
 const (
 	baseURL        = "http://%s.tumblr.com"
 	apiURL         = "%s/api/read?type=%s&num=%d&start=%d"
-	defaultPerPage = 20
 	start          = 0
 	defaultDto     = 3600
-	defaultCto     = 10
+	defaultCto     = 15
 	defaultBatch   = 2
+	defaultPerPage = 20
+	maxPerBatch    = 10
+	maxPerPage     = 40
 	defaultMedia   = "all"
 	photo          = "photo"
 	video          = "video"
@@ -153,7 +155,9 @@ func main() {
 
 	flag.VisitAll(func(f *flag.Flag) {
 		if f.Value.String() == "" {
-			fmt.Println(color.RedString("Flag param -%s is required", f.Name))
+			msg := color.New(color.FgHiRed, color.Bold).
+				SprintfFunc()("[ERROR] Flag param -%s is required", f.Name)
+			fmt.Println(msg)
 			fmt.Println("Usage:")
 			flag.PrintDefaults()
 			os.Exit(0)
@@ -165,12 +169,16 @@ func main() {
 		for m := range allowedMedia {
 			am = append(am, m)
 		}
-		fmt.Println(color.RedString("Allowed media is: %s", strings.Join(am, ",")))
+		msg := color.New(color.FgHiRed, color.Bold).
+			SprintfFunc()("[ERROR] Allowed media is: %s", strings.Join(am, ","))
+		fmt.Println(msg)
 		os.Exit(0)
 	}
 
 	if uname == "." && input == "." {
-		fmt.Println(color.RedString("Flag param -u (username comma separated) OR -s (json file) IS required !"))
+		msg := color.New(color.FgHiRed, color.Bold).
+			SprintfFunc()("[ERROR] Flag param -u (username comma separated) OR -s (json file) IS required !")
+		fmt.Println(msg)
 		fmt.Println("Usage:")
 		flag.PrintDefaults()
 		os.Exit(0)
@@ -185,19 +193,47 @@ func main() {
 		}
 	} else {
 		if err := loadList(input); err != nil {
-			fmt.Println(color.RedString(err.Error()))
+			msg := color.New(color.FgHiRed, color.Bold).
+				SprintfFunc()("[ERROR] %s", err.Error())
+			fmt.Println(msg)
 			os.Exit(0)
 		}
 	}
 
 	if err := checkDest(dest); err != nil {
-		fmt.Println(color.RedString(err.Error()))
+		msg := color.New(color.FgHiRed, color.Bold).
+			SprintfFunc()("[ERROR] %s", err.Error())
+		fmt.Println(msg)
 		os.Exit(0)
 
 	}
 
+	if batch < 1 {
+		batch = 1
+	}
+
+	if batch > maxPerBatch {
+		batch = maxPerBatch
+	}
+
+	if perPage < 1 {
+		perPage = defaultPerPage
+	}
+
+	if perPage > maxPerPage {
+		perPage = maxPerPage
+	}
+
+	if cto < 1 {
+		cto = defaultCto
+	}
+
+	if dto < 1 {
+		dto = defaultDto
+	}
+
 	absDest, _ := filepath.Abs(dest)
-	fmt.Println(color.GreenString("[SAVE TO : %s/*]", absDest))
+	fmt.Println(color.GreenString("[SAVE TO] %s/*", absDest))
 	// mulai dari nol ya mbak...
 	counterFile = 0
 	counterPost = 0
@@ -217,7 +253,9 @@ func main() {
 		}
 
 		if err := job.processJob(); err != nil {
-			fmt.Println(color.RedString("[ERROR] %s", err.Error()))
+			msg := color.New(color.FgHiRed, color.Bold).
+				SprintfFunc()("[ERROR] %s", err.Error())
+			fmt.Println(msg)
 		}
 	}
 
@@ -335,8 +373,10 @@ func (job *tumblrJob) processJob() error {
 		}
 
 		if err := mJob.processMedia(); err != nil {
+			msg := color.New(color.FgHiRed, color.Bold).
+				SprintfFunc()("[ERROR] %s", err.Error())
 			// don't cancel job
-			fmt.Println(color.RedString("[ERROR] %s", err.Error()))
+			fmt.Println(msg)
 		}
 	}
 
@@ -361,7 +401,15 @@ func (m *mediaJob) processMedia() error {
 	totalPage := int(math.Ceil(countTotal))
 
 	if m.mainJob.limitPage != 0 && m.mainJob.limitPage < totalPage {
-		totalPage = m.mainJob.limitPage
+		if m.mainJob.limitPage < 0 {
+			totalPage = 1
+			fmt.Println(color.GreenString("[INFO] REVERT LIMIT PAGE TO: %d", totalPage))
+		} else {
+			totalPage = m.mainJob.limitPage
+			fmt.Println(color.GreenString("[INFO] SET LIMIT PAGE TO: %d", totalPage))
+		}
+	} else {
+		fmt.Println(color.GreenString("[INFO] TOTAL PAGE: %d", totalPage))
 	}
 
 	for currentPage < totalPage {
@@ -374,7 +422,9 @@ func (m *mediaJob) processMedia() error {
 
 		blogPage, pageErr := getXMLSource(api, m.mainJob.connectTimeout)
 		if pageErr != nil {
-			fmt.Println(color.RedString("[ERROR PAGE %d] [%s]", currentPage, pageErr.Error()))
+			msg := color.New(color.FgHiRed, color.Bold).
+				SprintfFunc()("[ERROR PAGE %d] [%s]", currentPage, pageErr.Error())
+			fmt.Println(msg)
 		} else {
 			fmt.Println(
 				color.CyanString(
@@ -556,7 +606,7 @@ func (dl *downloadList) process() bool {
 			dto:  dl.dto,
 		}
 
-		fmt.Println(fmt.Sprintf("    [%s DOWNLOAD]", strings.ToUpper(dl.media)))
+		fmt.Println(fmt.Sprintf("    [DOWNLOADING %d %s AT ONCE]", dl.perBatch, strings.ToUpper(dl.media)))
 		a.download()
 	}
 
@@ -580,6 +630,7 @@ func (d *actualBatchDownload) download() bool {
 			elapsed := make(chan float64, 1)
 			cur := make(chan string, 1)
 			res := make(chan string, 1)
+			ae := make(chan bool, 1)
 
 			go func() {
 				startTime := time.Now()
@@ -588,7 +639,8 @@ func (d *actualBatchDownload) download() bool {
 				res <- fd.destFile
 
 				if _, mErr := os.Stat(fd.destFile); os.IsNotExist(mErr) {
-					fmt.Println(color.WhiteString("\t[DOWNLOADING] [%d] [%s]", startTime.Unix(), fd.url))
+					ae <- false
+					fmt.Println(color.WhiteString("\t[PROCESSING] [%d] [%s]", startTime.Unix(), fd.url))
 					client := &http.Client{Timeout: (time.Second * time.Duration(d.dto))}
 					ua := userAgents[rand.Intn(len(userAgents))]
 					req, _ := http.NewRequest("GET", fd.url, nil)
@@ -604,7 +656,7 @@ func (d *actualBatchDownload) download() bool {
 
 					if r.StatusCode != http.StatusOK {
 						os.Remove(f.destFile)
-						done <- fmt.Errorf("%d <- %s", r.StatusCode, f.url)
+						done <- fmt.Errorf("[%d] [%s]", r.StatusCode, f.url)
 					}
 					defer r.Body.Close()
 
@@ -613,6 +665,7 @@ func (d *actualBatchDownload) download() bool {
 						done <- dErr
 					}
 				} else {
+					ae <- true
 					fmt.Println(color.WhiteString("\t[ALREADY_DOWNLOADED] [%s]", fd.url))
 				}
 
@@ -624,20 +677,26 @@ func (d *actualBatchDownload) download() bool {
 				close(elapsed)
 				close(cur)
 				close(res)
+				close(ae)
 			}()
 
 			select {
 			case err := <-done:
 				if err != nil {
 					// file already deleted if any http/io error occured
-					fmt.Println(color.RedString("\t[ERROR] [%s]", err.Error()))
+					msg := color.New(color.FgHiRed, color.Bold).SprintfFunc()("\t[ERROR] %s", err.Error())
+					fmt.Println(msg)
 				} else {
 					counterFile++
-					fmt.Println(color.GreenString("\t[SUCCESS] [%f] [%s]", <-elapsed, <-res))
+					if !<-ae {
+						fmt.Println(color.GreenString("\t[SUCCESS] [%f] [%s]", <-elapsed, <-res))
+					}
 				}
 			case <-time.After(time.Second * time.Duration(d.dto)):
 				os.Remove(f.destFile)
-				fmt.Println(color.MagentaString("\t[ERROR TIMEOUT] [%f] [%s]", <-elapsed, <-cur))
+				msg := color.New(color.FgHiMagenta, color.Bold).
+					SprintfFunc()("\t[ERROR TIMEOUT] [%f] [%s]", <-elapsed, <-cur)
+				fmt.Println(msg)
 			}
 			wg.Done()
 		}(f)
