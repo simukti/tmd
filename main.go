@@ -687,7 +687,7 @@ type downloadResult struct {
 	job               *fileToDownload
 }
 
-func (d *actualBatchDownload) download() bool {
+func (d *actualBatchDownload) download() {
 	wg := &sync.WaitGroup{}
 
 	for _, f := range d.files {
@@ -771,6 +771,4 @@ func (d *actualBatchDownload) download() bool {
 	}
 
 	wg.Wait()
-
-	return true
 }
