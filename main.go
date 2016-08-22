@@ -24,39 +24,85 @@ import (
 )
 
 const (
-	baseURL        = "http://%s.tumblr.com"
-	apiURL         = "%s/api/read?type=%s&num=%d&start=%d"
-	start          = 0
-	defaultDto     = 3600
-	defaultCto     = 15
-	defaultBatch   = 2
-	defaultPerPage = 20
-	maxPerBatch    = 10
-	maxPerPage     = 40
-	defaultMedia   = "all"
-	photo          = "photo"
-	video          = "video"
+	// BASEURL main tumblr user api base domain
+	BASEURL = "http://%s.tumblr.com"
+
+	// APIURL main tumblr user api full path
+	APIURL = "%s/api/read?type=%s&num=%d&start=%d"
+
+	// DEFAULTSTART default start post number
+	DEFAULTSTART = 0
+
+	// DEFAULTDTO default download timeout
+	DEFAULTDTO = 3600
+
+	// DEFAULTCTO default connect timeout, this is used on first request to get total posts
+	DEFAULTCTO = 15
+
+	// DEFAULTBATCH default files download at once
+	DEFAULTBATCH = 2
+
+	// DEFAULTPERPAGE default posts per page request
+	DEFAULTPERPAGE = 20
+
+	// MAXPERBATCH maximum files download at once
+	MAXPERBATCH = 10
+
+	// MAXPERPAGE maximum posts perpage request
+	MAXPERPAGE = 40
+
+	// DEFAULTMEDIA default value for cli -m param
+	DEFAULTMEDIA = "all"
+
+	// PHOTO photo post type
+	PHOTO = "photo"
+
+	// VIDEO video post type
+	VIDEO = "video"
+
+	// BYTE byte unit float
+	BYTE = 1.0
+
+	// KiB Kibibyte
+	KiB = 1024 * BYTE
+
+	// MiB Mebibyte
+	MiB = 1024 * KiB
+
+	// GiB Gibibyte
+	GiB = 1024 * MiB
 )
 
 var (
-	input        string
-	uname        string
-	dest         string
-	media        string
-	list         []string
-	batch        int
-	cto          int
-	dto          int
-	perPage      int
-	limitPage    int
-	counterFile  int
-	counterPost  int
-	allowedMedia = map[string]bool{"all": true, photo: true, video: true}
-	allMedia     = []string{photo, video}
-	userAgents   = []string{
+	input         string
+	uname         string
+	dest          string
+	media         string
+	list          []string
+	batch         int
+	cto           int
+	dto           int
+	perPage       int
+	limitPage     int
+	counterFile   int
+	counterPost   int
+	counterSize   int64
+	counterStored int64
+	allowedMedia  = map[string]bool{"all": true, PHOTO: true, VIDEO: true}
+	allMedia      = []string{PHOTO, VIDEO}
+
+	// every http request will randomly pick one user agent from this string list
+	defaultUserAgents = [...]string{
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10.11; rv:48.0) Gecko/20100101 Firefox/48.0",
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.91 Safari/537.36",
 		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/601.7.7 (KHTML, like Gecko) Version/9.1.2 Safari/601.7.7",
+		"Mozilla/5.0 (Linux; Android 5.0.2; LG-V410/V41020c Build/LRX22G) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/34.0.1847.118 Safari/537.36",
+		"Mozilla/5.0 (Linux; Android 6.0.1; Nexus 6P Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.83 Mobile Safari/537.36",
+		"Mozilla/5.0 (Linux; Android 5.1.1; SM-G928X Build/LMY47X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.83 Mobile Safari/537.36",
+		"Mozilla/5.0 (Linux; Android 5.0.2; SAMSUNG SM-T550 Build/LRX22G) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/3.3 Chrome/38.0.2125.102 Safari/537.36",
+		"Mozilla/5.0 (Linux; Android 5.0.2; LG-V410/V41020c Build/LRX22G) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/34.0.1847.118 Safari/537.36",
+		"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36",
+		"Mozilla/5.0 (Windows Phone 10.0; Android 4.2.1; Microsoft; Lumia 950) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2486.0 Mobile Safari/537.36 Edge/13.10586",
 	}
 )
 
@@ -127,8 +173,8 @@ type Photo struct {
 
 // tumblrJob main tumblr download jobs per username and media
 type tumblrJob struct {
-	uname           string
-	dest            string
+	username        string
+	mainFolder      string
 	media           string
 	batch           int
 	connectTimeout  int
@@ -138,21 +184,20 @@ type tumblrJob struct {
 	limitPage       int
 }
 
-func main() {
+func init() {
 	// default destination folder is current exexutable dir
 	defaultDest, _ := os.Getwd()
 
 	flag.StringVar(&input, "s", ".", "JSON input file")
 	flag.StringVar(&uname, "u", ".", "Tumblr username to download, WITHOUT ending .tumblr.com ! -- comma separated for multiple username")
 	flag.StringVar(&dest, "d", defaultDest, "Destination directory")
-	flag.StringVar(&media, "m", defaultMedia, "Media type to download")
-	flag.IntVar(&batch, "b", defaultBatch, "File per download")
-	flag.IntVar(&cto, "cto", defaultCto, "Connect timeout on XML parsing")
-	flag.IntVar(&dto, "dto", defaultDto, "Download timeout per n file batch in param -b")
-	flag.IntVar(&perPage, "pp", defaultPerPage, "Default post per page")
+	flag.StringVar(&media, "m", DEFAULTMEDIA, "Media type to download")
+	flag.IntVar(&batch, "b", DEFAULTBATCH, "File per download")
+	flag.IntVar(&cto, "cto", DEFAULTCTO, "Connect timeout on XML parsing")
+	flag.IntVar(&dto, "dto", DEFAULTDTO, "Download timeout per n file batch in param -b")
+	flag.IntVar(&perPage, "pp", DEFAULTPERPAGE, "Default post per page")
 	flag.IntVar(&limitPage, "lp", 0, "Max page to fetch, 0 is unlimited (all page)")
 	flag.Parse()
-
 	flag.VisitAll(func(f *flag.Flag) {
 		if f.Value.String() == "" {
 			msg := color.New(color.FgHiRed, color.Bold).
@@ -212,26 +257,28 @@ func main() {
 		batch = 1
 	}
 
-	if batch > maxPerBatch {
-		batch = maxPerBatch
+	if batch > MAXPERBATCH {
+		batch = MAXPERBATCH
 	}
 
 	if perPage < 1 {
-		perPage = defaultPerPage
+		perPage = DEFAULTPERPAGE
 	}
 
-	if perPage > maxPerPage {
-		perPage = maxPerPage
+	if perPage > MAXPERPAGE {
+		perPage = MAXPERPAGE
 	}
 
 	if cto < 1 {
-		cto = defaultCto
+		cto = DEFAULTCTO
 	}
 
 	if dto < 1 {
-		dto = defaultDto
+		dto = DEFAULTDTO
 	}
+}
 
+func main() {
 	absDest, _ := filepath.Abs(dest)
 	fmt.Println(color.GreenString("[SAVE TO] %s/*", absDest))
 	// mulai dari nol ya mbak...
@@ -239,13 +286,13 @@ func main() {
 	counterPost = 0
 	startTime := time.Now()
 
-	for _, u := range list {
+	for _, username := range list {
 		job := &tumblrJob{
-			uname:           u,
-			dest:            dest,
+			username:        username,
+			mainFolder:      dest,
 			media:           media,
 			batch:           batch,
-			start:           start,
+			start:           DEFAULTSTART,
 			perPage:         perPage,
 			limitPage:       limitPage,
 			connectTimeout:  cto,
@@ -259,14 +306,25 @@ func main() {
 		}
 	}
 
-	pu := strings.Join(list, ",")
-	elapsed := time.Now().Sub(startTime).Seconds()
+	processedUsers := strings.Join(list, ",")
+	totalDownloaded := float32(counterSize) / GiB
+	totalStored := float32(counterStored) / GiB
+	totalTime := time.Since(startTime).Seconds()
 	summary := color.New(color.FgHiYellow, color.Bold).
-		SprintfFunc()("\n--------\n[USER] %s\n[POST] %d posts\n[FILE] %d files\n[TIME] %f seconds\n--------",
-		pu,
+		SprintfFunc()(""+
+		"\n--------"+
+		"\n[USER] [%s]"+
+		"\n[POST] %d posts"+
+		"\n[FILE] %d files (%.3f GiB)"+
+		"\n[SIZE] %.3f GiB downloaded"+
+		"\n[TIME] %.2f seconds"+
+		"\n--------",
+		processedUsers,
 		counterPost,
 		counterFile,
-		elapsed,
+		totalStored,
+		totalDownloaded,
+		totalTime,
 	)
 
 	fmt.Println(summary)
@@ -327,11 +385,11 @@ func loadList(file string) error {
 }
 
 func (job *tumblrJob) processJob() error {
-	ua := userAgents[rand.Intn(len(userAgents))]
+	useragent := defaultUserAgents[rand.Intn(len(defaultUserAgents))]
 	client := http.DefaultClient
-	userURL := fmt.Sprintf(baseURL, job.uname)
+	userURL := fmt.Sprintf(BASEURL, job.username)
 	headReq, _ := http.NewRequest("HEAD", userURL, nil) // check username existence
-	headReq.Header.Set("User-Agent", ua)
+	headReq.Header.Set("User-Agent", useragent)
 	headResp, headErr := client.Do(headReq)
 	headError := fmt.Errorf("Unable to parse %s", userURL)
 	if headErr != nil {
@@ -343,7 +401,7 @@ func (job *tumblrJob) processJob() error {
 		return headError
 	}
 
-	var mediaType []string
+	mediaType := []string{}
 
 	if job.media == "all" {
 		mediaType = allMedia
@@ -351,9 +409,9 @@ func (job *tumblrJob) processJob() error {
 		mediaType = append(mediaType, job.media)
 	}
 
-	userDir := filepath.Join(job.dest, job.uname)
+	userDir := filepath.Join(job.mainFolder, job.username)
 	if _, cErr := os.Stat(userDir); os.IsNotExist(cErr) {
-		if err := os.Mkdir(filepath.Join(job.dest, job.uname), 0777); err != nil {
+		if err := os.Mkdir(filepath.Join(job.mainFolder, job.username), 0700); err != nil {
 			return err
 		}
 	}
@@ -365,9 +423,9 @@ func (job *tumblrJob) processJob() error {
 			mainJob: job,
 		}
 
-		mediaDir := filepath.Join(job.dest, job.uname, m)
+		mediaDir := filepath.Join(job.mainFolder, job.username, m)
 		if _, mErr := os.Stat(mediaDir); os.IsNotExist(mErr) {
-			if err := os.Mkdir(mediaDir, 0777); err != nil {
+			if err := os.Mkdir(mediaDir, 0700); err != nil {
 				return err
 			}
 		}
@@ -389,7 +447,7 @@ type mediaJob struct {
 }
 
 func (m *mediaJob) processMedia() error {
-	ping := fmt.Sprintf(apiURL, m.userURL, m.mainJob.media, 0, 0)
+	ping := fmt.Sprintf(APIURL, m.userURL, m.mainJob.media, 0, 0)
 	blog, err := getXMLSource(ping, m.mainJob.connectTimeout)
 	if err != nil {
 		return err
@@ -414,13 +472,13 @@ func (m *mediaJob) processMedia() error {
 
 	for currentPage < totalPage {
 		currentPage++
-		startAt = int((m.mainJob.perPage * (currentPage - 1)) + 1)
+		startAt = (m.mainJob.perPage * (currentPage - 1)) + 1
 		if startAt == 1 {
 			startAt = 0
 		}
-		api := fmt.Sprintf(apiURL, m.userURL, m.mainJob.media, m.mainJob.perPage, startAt)
-
+		api := fmt.Sprintf(APIURL, m.userURL, m.mainJob.media, m.mainJob.perPage, startAt)
 		blogPage, pageErr := getXMLSource(api, m.mainJob.connectTimeout)
+
 		if pageErr != nil {
 			msg := color.New(color.FgHiRed, color.Bold).
 				SprintfFunc()("[ERROR PAGE %d] [%s]", currentPage, pageErr.Error())
@@ -429,13 +487,13 @@ func (m *mediaJob) processMedia() error {
 			fmt.Println(
 				color.CyanString(
 					"\n====================================[%s] [%s] [PAGE %d/%d]====================================",
-					strings.ToUpper(fmt.Sprintf(baseURL, m.mainJob.uname)),
+					strings.ToUpper(fmt.Sprintf(BASEURL, m.mainJob.username)),
 					strings.ToUpper(m.mainJob.media),
 					currentPage,
 					totalPage,
 				))
 
-			blogPage.processPage(m.mainJob.dest, m.mainJob.batch, m.mainJob.downloadTimeout)
+			blogPage.processPage(m.mainJob.mainFolder, m.mainJob.batch, m.mainJob.downloadTimeout)
 		}
 	}
 
@@ -444,34 +502,31 @@ func (m *mediaJob) processMedia() error {
 
 func getXMLSource(api string, cto int) (*Tumblr, error) {
 	t := &Tumblr{}
-	ua := userAgents[rand.Intn(len(userAgents))]
+	useragent := defaultUserAgents[rand.Intn(len(defaultUserAgents))]
 	client := &http.Client{Timeout: (time.Second * time.Duration(cto))}
 	apiReq, _ := http.NewRequest("GET", api, nil)
-	apiReq.Header.Set("User-Agent", ua)
+	apiReq.Header.Set("User-Agent", useragent)
 	apiResp, apiErr := client.Do(apiReq)
 	if apiErr != nil {
 		return t, apiErr
 	}
 	defer apiResp.Body.Close()
+	err := xml.NewDecoder(apiResp.Body).Decode(t)
 
-	if err := xml.NewDecoder(apiResp.Body).Decode(t); err != nil {
-		return t, err
-	}
-
-	return t, nil
+	return t, err
 }
 
-func (t *Tumblr) processPage(mainDestFolder string, perBatch, dto int) bool {
+func (t *Tumblr) processPage(mainTargetFolder string, perBatch, dto int) bool {
 	fl := []*fileToDownload{}
 	for _, p := range t.Posts.Posts {
 		counterPost++
 
-		if p.Type == photo {
-			pfj := t.getPhotoFileJob(&p, mainDestFolder)
+		if p.Type == PHOTO {
+			pfj := t.getPhotoFileJob(&p, mainTargetFolder)
 			fl = append(fl, pfj...)
 		}
-		if p.Type == video {
-			vfj := t.getVideoFileJob(&p, mainDestFolder)
+		if p.Type == VIDEO {
+			vfj := t.getVideoFileJob(&p, mainTargetFolder)
 			fl = append(fl, vfj...)
 		}
 	}
@@ -480,31 +535,21 @@ func (t *Tumblr) processPage(mainDestFolder string, perBatch, dto int) bool {
 	return dl.process()
 }
 
-func (t *Tumblr) getPhotoFileJob(p *Post, mainDestFolder string) []*fileToDownload {
+func (t *Tumblr) getPhotoFileJob(p *Post, mainTargetFolder string) []*fileToDownload {
 	fl := []*fileToDownload{}
 
 	if len(p.PhotoSet.Photo) > 0 {
 		for _, psp := range p.PhotoSet.Photo {
 			for _, pu := range psp.PhotoURL {
-				if pu.MaxWidth == 1280 {
-					fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
-					fd := fileToDownload{
-						url:      pu.FileURL,
-						destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
-					}
-					fl = append(fl, &fd)
+				if fd, ok := pu.normalizePhotoURL(mainTargetFolder, t.TumbleBlog.Name, p); ok {
+					fl = append(fl, fd)
 				}
 			}
 		}
 	} else {
 		for _, pu := range p.PhotoURLs {
-			if pu.MaxWidth == 1280 {
-				fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
-				fd := fileToDownload{
-					url:      pu.FileURL,
-					destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
-				}
-				fl = append(fl, &fd)
+			if fd, ok := pu.normalizePhotoURL(mainTargetFolder, t.TumbleBlog.Name, p); ok {
+				fl = append(fl, fd)
 			}
 		}
 	}
@@ -512,7 +557,21 @@ func (t *Tumblr) getPhotoFileJob(p *Post, mainDestFolder string) []*fileToDownlo
 	return fl
 }
 
-func (t *Tumblr) getVideoFileJob(p *Post, mainDestFolder string) []*fileToDownload {
+func (pu *PhotoURL) normalizePhotoURL(mainfolder, username string, p *Post) (*fileToDownload, bool) {
+	if pu.MaxWidth == 1280 {
+		fname := normalizeDestination(pu.FileURL, p.ID, p.Timestamp)
+		fd := fileToDownload{
+			url:      pu.FileURL,
+			destFile: filepath.Join(mainfolder, username, p.Type, fname),
+		}
+
+		return &fd, true
+	}
+
+	return &fileToDownload{}, false
+}
+
+func (t *Tumblr) getVideoFileJob(p *Post, mainTargetFolder string) []*fileToDownload {
 	fl := []*fileToDownload{}
 
 	for _, vp := range p.VideoPlayer {
@@ -530,7 +589,7 @@ func (t *Tumblr) getVideoFileJob(p *Post, mainDestFolder string) []*fileToDownlo
 
 				fd := fileToDownload{
 					url:      videoURL,
-					destFile: filepath.Join(mainDestFolder, t.TumbleBlog.Name, p.Type, fname),
+					destFile: filepath.Join(mainTargetFolder, t.TumbleBlog.Name, p.Type, fname),
 				}
 				fl = append(fl, &fd)
 			}
@@ -602,11 +661,11 @@ func (dl *downloadList) process() bool {
 		}
 
 		a := actualBatchDownload{
-			file: batchJob,
-			dto:  dl.dto,
+			files:   batchJob,
+			timeout: dl.dto,
 		}
 
-		fmt.Println(fmt.Sprintf("    [DOWNLOADING %d %s AT ONCE]", dl.perBatch, strings.ToUpper(dl.media)))
+		fmt.Println(fmt.Sprintf("    [PROCESSING %d %s AT ONCE]", dl.perBatch, strings.ToUpper(dl.media)))
 		a.download()
 	}
 
@@ -614,91 +673,100 @@ func (dl *downloadList) process() bool {
 }
 
 type actualBatchDownload struct {
-	dto  int
-	file []*fileToDownload
+	timeout int
+	files   []*fileToDownload
+}
+
+type downloadResult struct {
+	timeStart         time.Time
+	processError      error
+	elapsedDuration   float64
+	alreadyDownloaded bool
+	sizeStored        int64
+	sizeDownloaded    int64
+	job               *fileToDownload
 }
 
 func (d *actualBatchDownload) download() bool {
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 
-	for _, f := range d.file {
+	for _, f := range d.files {
 		wg.Add(1)
 
-		go func(fd *fileToDownload) {
-			st := make(chan time.Time, 1)
-			done := make(chan error, 1)
-			elapsed := make(chan float64, 1)
-			cur := make(chan string, 1)
-			res := make(chan string, 1)
-			ae := make(chan bool, 1)
+		go func(ftd *fileToDownload) {
+			resultChan := make(chan downloadResult, 1)
 
 			go func() {
 				startTime := time.Now()
-				st <- startTime
-				cur <- fd.url
-				res <- fd.destFile
-
-				if _, mErr := os.Stat(fd.destFile); os.IsNotExist(mErr) {
-					ae <- false
-					fmt.Println(color.WhiteString("\t[PROCESSING] [%d] [%s]", startTime.Unix(), fd.url))
-					client := &http.Client{Timeout: (time.Second * time.Duration(d.dto))}
-					ua := userAgents[rand.Intn(len(userAgents))]
-					req, _ := http.NewRequest("GET", fd.url, nil)
-					req.Header.Set("User-Agent", ua)
-					r, rErr := client.Do(req)
-					o, _ := os.Create(fd.destFile)
-					defer o.Close()
-
-					if rErr != nil {
-						os.Remove(fd.destFile)
-						done <- rErr
-					}
-
-					if r.StatusCode != http.StatusOK {
-						os.Remove(f.destFile)
-						done <- fmt.Errorf("[%d] [%s]", r.StatusCode, f.url)
-					}
-					defer r.Body.Close()
-
-					if _, dErr := io.Copy(o, r.Body); dErr != nil {
-						os.Remove(fd.destFile)
-						done <- dErr
-					}
-				} else {
-					ae <- true
-					fmt.Println(color.WhiteString("\t[ALREADY_DOWNLOADED] [%s]", fd.url))
+				result := downloadResult{
+					job:       ftd,
+					timeStart: startTime,
 				}
 
-				endTime := time.Now().Sub(startTime).Seconds()
-				elapsed <- endTime
+				if s, mErr := os.Stat(ftd.destFile); os.IsNotExist(mErr) {
+					fmt.Println(color.WhiteString("\t[DOWNLOADING] [%d] [%s]", startTime.Unix(), ftd.url))
+					client := &http.Client{Timeout: (time.Second * time.Duration(d.timeout))}
+					useragent := defaultUserAgents[rand.Intn(len(defaultUserAgents))]
+					request, _ := http.NewRequest("GET", ftd.url, nil)
+					request.Header.Set("User-Agent", useragent)
+					response, requestError := client.Do(request)
+					output, _ := os.Create(ftd.destFile)
+					defer output.Close()
 
-				close(st)
-				close(done)
-				close(elapsed)
-				close(cur)
-				close(res)
-				close(ae)
+					if requestError != nil {
+						_ = os.Remove(ftd.destFile)
+						result.processError = requestError
+					}
+
+					if response.StatusCode != http.StatusOK {
+						_ = os.Remove(ftd.destFile)
+						result.processError = fmt.Errorf("[%d] [%s]", response.StatusCode, ftd.url)
+					}
+					defer response.Body.Close()
+
+					if _, writeError := io.Copy(output, response.Body); writeError != nil {
+						_ = os.Remove(ftd.destFile)
+						result.processError = writeError
+					}
+
+					result.alreadyDownloaded = false
+					result.sizeDownloaded = response.ContentLength
+					result.sizeStored = response.ContentLength
+				} else {
+					result.alreadyDownloaded = true
+					result.sizeStored = s.Size()
+					fmt.Println(color.WhiteString("\t[DOWNLOADED] [%s]", ftd.destFile))
+				}
+
+				result.elapsedDuration = time.Since(startTime).Seconds()
+				resultChan <- result
+
+				close(resultChan)
 			}()
 
 			select {
-			case err := <-done:
-				if err != nil {
+			case r := <-resultChan:
+				if r.processError != nil {
 					// file already deleted if any http/io error occured
-					msg := color.New(color.FgHiRed, color.Bold).SprintfFunc()("\t[ERROR] %s", err.Error())
+					msg := color.New(color.FgHiRed, color.Bold).SprintfFunc()("\t[ERROR] %s", r.processError.Error())
 					fmt.Println(msg)
 				} else {
 					counterFile++
-					if !<-ae {
-						fmt.Println(color.GreenString("\t[SUCCESS] [%f] [%s]", <-elapsed, <-res))
+					counterStored = (counterStored + r.sizeStored)
+					if !r.alreadyDownloaded {
+						counterSize = (counterSize + r.sizeDownloaded)
+						fmt.Println(color.GreenString("\t[SUCCESS] [%f] [%s]", r.elapsedDuration, r.job.destFile))
 					}
 				}
-			case <-time.After(time.Second * time.Duration(d.dto)):
-				os.Remove(f.destFile)
+				wg.Done()
+			case <-time.After(time.Second * time.Duration(d.timeout)):
+				r := <-resultChan
+				_ = os.Remove(r.job.destFile)
 				msg := color.New(color.FgHiMagenta, color.Bold).
-					SprintfFunc()("\t[ERROR TIMEOUT] [%f] [%s]", <-elapsed, <-cur)
+					SprintfFunc()("\t[ERROR TIMEOUT] [%f] [%s]", r.elapsedDuration, r.job.url)
 				fmt.Println(msg)
+				wg.Done()
 			}
-			wg.Done()
 		}(f)
 	}
 
