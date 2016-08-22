@@ -19,9 +19,9 @@ Usage of tmd:
   -b int
     	File per download (default 2)
   -cto int
-    	Connect timeout on XML parsing (default 10)
+    	Connect timeout on XML parsing (default 15)
   -d string
-    	Destination directory (default "YOUR_CURRENTLY_ACTIVE_FOLDER_WHEN_YOU_RUN_tmd")
+    	Destination directory (default "/tmp")
   -dto int
     	Download timeout per n file batch in param -b (default 3600)
   -lp int
@@ -38,14 +38,14 @@ Usage of tmd:
 
 **Basic usage :**
 ```bash
-// this will download to current dir
+// this will download photos and videos to current dir
 // multiple user must use comma-separated [-u username1,username2,username3,whatever]
 tmd -u yahoo -d .
 ```
 
 **Certain media type :**
 ```bash
-// this will download to current dir
+// this will download videos to current dir
 // download only video.
 // valid media type is : video / photo
 tmd -u yahoo -d . -m video
@@ -53,7 +53,7 @@ tmd -u yahoo -d . -m video
 
 **Load list of username from json file is supported :**
 ```bash
-// this will download to current dir
+// this will download photos and videos to current dir
 // file.json is array of username, see below 
 tmd -s /path/to/file.json -d .
 ```
@@ -75,62 +75,63 @@ $ tmd -u yahoo -m photo -d .
 [INFO] TOTAL PAGE: 1
 
 ====================================[HTTP://YAHOO.TUMBLR.COM] [PHOTO] [PAGE 1/1]====================================
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776032] [https://67.media.tumblr.com/e6112c2264e4e3313354557324dd870d/tumblr_o4v14jKKVO1rkc4vfo1_1280.png]
-        [PROCESSING] [1471776032] [https://65.media.tumblr.com/86949f0a74f04d112451dd58ae7bf46d/tumblr_obnnxjmsQT1qig25ko1_500.jpg]
-        [SUCCESS] [1.407819] [yahoo/photo/148700159759_1470768103_tumblr_obnnxjmsQT1qig25ko1_500.jpg]
-        [SUCCESS] [7.061401] [yahoo/photo/141966817739_1459362525_tumblr_o4v14jKKVO1rkc4vfo1_1280.png]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776039] [https://66.media.tumblr.com/9071c2ec28bb4239a662a720b6b72cdd/tumblr_o2nzneqlpH1qig25ko1_r1_1280.jpg]
-        [PROCESSING] [1471776039] [https://67.media.tumblr.com/e13bb15d757b270a3ceb26c7845b80eb/tumblr_o4ikgfSFnP1qig25ko1_r2_1280.jpg]
-        [SUCCESS] [0.662581] [yahoo/photo/141674381814_1458933158_tumblr_o4ikgfSFnP1qig25ko1_r2_1280.jpg]
-        [SUCCESS] [1.638258] [yahoo/photo/140035049899_1456505959_tumblr_o2nzneqlpH1qig25ko1_r1_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776041] [https://67.media.tumblr.com/2bb69dcacdec9b706db2d1050eafeea4/tumblr_nr4o33n0dc1qig25ko1_r7_1280.jpg]
-        [PROCESSING] [1471776041] [https://66.media.tumblr.com/9d309bf90352be45c1011537810fa6a1/tumblr_nx9hfa4WEd1qz8q0ho2_r1_1280.gif]
-        [SUCCESS] [3.622916] [yahoo/photo/132961973864_1447195652_tumblr_nx9hfa4WEd1qz8q0ho2_r1_1280.gif]
-        [SUCCESS] [3.623309] [yahoo/photo/123472998984_1436289519_tumblr_nr4o33n0dc1qig25ko1_r7_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776045] [https://65.media.tumblr.com/67a9a3ee98a3be36c5083495c18c70f9/tumblr_nq2c2lr5u71til9nbo1_1280.png]
-        [PROCESSING] [1471776045] [https://67.media.tumblr.com/7f7550543b1285ff0b451175d9e50b60/tumblr_nq933hnK2f1qig25ko1_1280.jpg]
-        [SUCCESS] [6.541593] [yahoo/photo/121772903404_1434567152_tumblr_nq2c2lr5u71til9nbo1_1280.png]
-        [SUCCESS] [10.849254] [yahoo/photo/122006135219_1434815981_tumblr_nq933hnK2f1qig25ko1_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776055] [https://66.media.tumblr.com/fe5ba40e950cfa0e50fe05fdfd972780/tumblr_ni2zn1ZEjU1sw8fg2o1_1280.jpg]
-        [PROCESSING] [1471776055] [https://67.media.tumblr.com/28410edfe831508c405081b65ea5e84b/tumblr_nq1sajJdAk1qig25ko1_500.gif]
-        [SUCCESS] [0.717363] [yahoo/photo/108119983814_1421282084_tumblr_ni2zn1ZEjU1sw8fg2o1_1280.jpg]
-        [SUCCESS] [7.746607] [yahoo/photo/121685030724_1434475845_tumblr_nq1sajJdAk1qig25ko1_500.gif]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776063] [https://67.media.tumblr.com/030d46b7541992851d74ca14b96cb877/tumblr_naw6iriFlj1tehs99o1_1280.png]
-        [PROCESSING] [1471776063] [https://67.media.tumblr.com/83a3761345f1b59408a3b3ba5128098d/tumblr_ndtmcz2r4u1qig25ko1_1280.jpg]
-        [SUCCESS] [4.973081] [yahoo/photo/95823386119_1409061110_tumblr_naw6iriFlj1tehs99o1_1280.png]
-        [SUCCESS] [5.845518] [yahoo/photo/100627931714_1413939059_tumblr_ndtmcz2r4u1qig25ko1_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776069] [https://67.media.tumblr.com/5331cf26f24c5479c194f12a3ecad51d/tumblr_n6ec5pcHlx1rvn2ylo1_540.png]
-        [PROCESSING] [1471776069] [https://66.media.tumblr.com/ea8212662c9ca2999640cfbdfa95eded/tumblr_naieiyAPsA1s7ikn2o1_1280.jpg]
-        [SUCCESS] [0.884138] [yahoo/photo/87309931259_1401469080_tumblr_n6ec5pcHlx1rvn2ylo1_540.png]
-        [SUCCESS] [0.979374] [yahoo/photo/95103834959_1408377225_tumblr_naieiyAPsA1s7ikn2o1_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776070] [https://66.media.tumblr.com/ac72d1cb739d94e1436106788525f145/tumblr_mz1rj047eP1sv7g70o1_500.gif]
-        [PROCESSING] [1471776070] [https://67.media.tumblr.com/c424b6f9a4000487d72b80a612d5dd95/tumblr_n1uju7p3Nh1rvn2ylo1_r1_1280.gif]
-        [SUCCESS] [2.780772] [yahoo/photo/78442986286_1393859782_tumblr_n1uju7p3Nh1rvn2ylo1_r1_1280.gif]
-        [SUCCESS] [3.743009] [yahoo/photo/72591660733_1389132812_tumblr_mz1rj047eP1sv7g70o1_500.gif]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776074] [https://67.media.tumblr.com/643e8ddfdcf436b9cd4d8051fc8b91de/tumblr_mprzvmT0fp1srd41xo1_1280.jpg]
-        [PROCESSING] [1471776074] [https://66.media.tumblr.com/3fb12979e449b6498bdc4afee52d0655/tumblr_mrsdvq2GLP1s3y9slo1_400.gif]
-        [SUCCESS] [4.163628] [yahoo/photo/58709627932_1376933280_tumblr_mrsdvq2GLP1s3y9slo1_400.gif]
-        [SUCCESS] [4.174704] [yahoo/photo/55181140269_1373560491_tumblr_mprzvmT0fp1srd41xo1_1280.jpg]
-    [DOWNLOADING 2 PHOTO AT ONCE]
-        [PROCESSING] [1471776078] [https://67.media.tumblr.com/65043584c2e9eb0019e3eac3f3e774d7/tumblr_mps4lcHqYX1srd41xo2_1280.jpg]
-        [PROCESSING] [1471776078] [https://67.media.tumblr.com/2e6bf1a539364c5a34c3acbc9a33e767/tumblr_mps4lcHqYX1srd41xo1_1280.jpg]
-        [SUCCESS] [14.744589] [yahoo/photo/55181120470_1373560474_tumblr_mps4lcHqYX1srd41xo2_1280.jpg]
-        [SUCCESS] [15.021571] [yahoo/photo/55181120470_1373560474_tumblr_mps4lcHqYX1srd41xo1_1280.jpg]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831339] [https://67.media.tumblr.com/e6112c2264e4e3313354557324dd870d/tumblr_o4v14jKKVO1rkc4vfo1_1280.png]
+        [DOWNLOADING] [1471831339] [https://65.media.tumblr.com/86949f0a74f04d112451dd58ae7bf46d/tumblr_obnnxjmsQT1qig25ko1_500.jpg]
+        [SUCCESS] [2.569506] [yahoo/photo/148700159759_1470768103_tumblr_obnnxjmsQT1qig25ko1_500.jpg]
+        [SUCCESS] [3.588300] [yahoo/photo/141966817739_1459362525_tumblr_o4v14jKKVO1rkc4vfo1_1280.png]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831342] [https://67.media.tumblr.com/e13bb15d757b270a3ceb26c7845b80eb/tumblr_o4ikgfSFnP1qig25ko1_r2_1280.jpg]
+        [DOWNLOADING] [1471831342] [https://66.media.tumblr.com/9071c2ec28bb4239a662a720b6b72cdd/tumblr_o2nzneqlpH1qig25ko1_r1_1280.jpg]
+        [SUCCESS] [0.875720] [yahoo/photo/141674381814_1458933158_tumblr_o4ikgfSFnP1qig25ko1_r2_1280.jpg]
+        [SUCCESS] [1.802288] [yahoo/photo/140035049899_1456505959_tumblr_o2nzneqlpH1qig25ko1_r1_1280.jpg]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831344] [https://66.media.tumblr.com/9d309bf90352be45c1011537810fa6a1/tumblr_nx9hfa4WEd1qz8q0ho2_r1_1280.gif]
+        [DOWNLOADING] [1471831344] [https://67.media.tumblr.com/2bb69dcacdec9b706db2d1050eafeea4/tumblr_nr4o33n0dc1qig25ko1_r7_1280.jpg]
+        [SUCCESS] [1.018664] [yahoo/photo/132961973864_1447195652_tumblr_nx9hfa4WEd1qz8q0ho2_r1_1280.gif]
+        [SUCCESS] [1.836089] [yahoo/photo/123472998984_1436289519_tumblr_nr4o33n0dc1qig25ko1_r7_1280.jpg]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831346] [https://65.media.tumblr.com/67a9a3ee98a3be36c5083495c18c70f9/tumblr_nq2c2lr5u71til9nbo1_1280.png]
+        [DOWNLOADING] [1471831346] [https://67.media.tumblr.com/7f7550543b1285ff0b451175d9e50b60/tumblr_nq933hnK2f1qig25ko1_1280.jpg]
+        [SUCCESS] [3.329371] [yahoo/photo/122006135219_1434815981_tumblr_nq933hnK2f1qig25ko1_1280.jpg]
+        [SUCCESS] [3.990703] [yahoo/photo/121772903404_1434567152_tumblr_nq2c2lr5u71til9nbo1_1280.png]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831350] [https://67.media.tumblr.com/28410edfe831508c405081b65ea5e84b/tumblr_nq1sajJdAk1qig25ko1_500.gif]
+        [DOWNLOADING] [1471831350] [https://66.media.tumblr.com/fe5ba40e950cfa0e50fe05fdfd972780/tumblr_ni2zn1ZEjU1sw8fg2o1_1280.jpg]
+        [SUCCESS] [0.499184] [yahoo/photo/108119983814_1421282084_tumblr_ni2zn1ZEjU1sw8fg2o1_1280.jpg]
+        [SUCCESS] [2.031835] [yahoo/photo/121685030724_1434475845_tumblr_nq1sajJdAk1qig25ko1_500.gif]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831352] [https://67.media.tumblr.com/030d46b7541992851d74ca14b96cb877/tumblr_naw6iriFlj1tehs99o1_1280.png]
+        [DOWNLOADING] [1471831352] [https://67.media.tumblr.com/83a3761345f1b59408a3b3ba5128098d/tumblr_ndtmcz2r4u1qig25ko1_1280.jpg]
+        [SUCCESS] [1.941718] [yahoo/photo/95823386119_1409061110_tumblr_naw6iriFlj1tehs99o1_1280.png]
+        [SUCCESS] [2.667032] [yahoo/photo/100627931714_1413939059_tumblr_ndtmcz2r4u1qig25ko1_1280.jpg]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831355] [https://67.media.tumblr.com/5331cf26f24c5479c194f12a3ecad51d/tumblr_n6ec5pcHlx1rvn2ylo1_540.png]
+        [DOWNLOADING] [1471831355] [https://66.media.tumblr.com/ea8212662c9ca2999640cfbdfa95eded/tumblr_naieiyAPsA1s7ikn2o1_1280.jpg]
+        [SUCCESS] [0.511610] [yahoo/photo/95103834959_1408377225_tumblr_naieiyAPsA1s7ikn2o1_1280.jpg]
+        [SUCCESS] [0.701445] [yahoo/photo/87309931259_1401469080_tumblr_n6ec5pcHlx1rvn2ylo1_540.png]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831355] [https://66.media.tumblr.com/ac72d1cb739d94e1436106788525f145/tumblr_mz1rj047eP1sv7g70o1_500.gif]
+        [DOWNLOADING] [1471831355] [https://67.media.tumblr.com/c424b6f9a4000487d72b80a612d5dd95/tumblr_n1uju7p3Nh1rvn2ylo1_r1_1280.gif]
+        [SUCCESS] [2.047591] [yahoo/photo/72591660733_1389132812_tumblr_mz1rj047eP1sv7g70o1_500.gif]
+        [SUCCESS] [2.165403] [yahoo/photo/78442986286_1393859782_tumblr_n1uju7p3Nh1rvn2ylo1_r1_1280.gif]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831358] [https://67.media.tumblr.com/643e8ddfdcf436b9cd4d8051fc8b91de/tumblr_mprzvmT0fp1srd41xo1_1280.jpg]
+        [DOWNLOADING] [1471831358] [https://66.media.tumblr.com/3fb12979e449b6498bdc4afee52d0655/tumblr_mrsdvq2GLP1s3y9slo1_400.gif]
+        [SUCCESS] [2.328180] [yahoo/photo/58709627932_1376933280_tumblr_mrsdvq2GLP1s3y9slo1_400.gif]
+        [SUCCESS] [2.784334] [yahoo/photo/55181140269_1373560491_tumblr_mprzvmT0fp1srd41xo1_1280.jpg]
+    [PROCESSING 2 PHOTO AT ONCE]
+        [DOWNLOADING] [1471831360] [https://67.media.tumblr.com/65043584c2e9eb0019e3eac3f3e774d7/tumblr_mps4lcHqYX1srd41xo2_1280.jpg]
+        [DOWNLOADING] [1471831360] [https://67.media.tumblr.com/2e6bf1a539364c5a34c3acbc9a33e767/tumblr_mps4lcHqYX1srd41xo1_1280.jpg]
+        [SUCCESS] [2.951447] [yahoo/photo/55181120470_1373560474_tumblr_mps4lcHqYX1srd41xo2_1280.jpg]
+        [SUCCESS] [4.326784] [yahoo/photo/55181120470_1373560474_tumblr_mps4lcHqYX1srd41xo1_1280.jpg]
 
 --------
-[USER] yahoo
+[USER] [yahoo]
 [POST] 19 posts
-[FILE] 20 files
-[TIME] 67.280056 seconds
+[FILE] 20 files (0.006 GiB)
+[SIZE] 0.006 GiB downloaded
+[TIME] 33.11 seconds
 --------
 ```
 
